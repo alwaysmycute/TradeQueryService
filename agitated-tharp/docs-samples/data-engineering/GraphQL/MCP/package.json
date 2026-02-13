@@ -1,0 +1,17 @@
+{
+  "name": "taiwan-trade-analytics-mcp",
+  "version": "2.0.0",
+  "description": "Taiwan Trade Analytics MCP Server - 台灣經貿數據分析 MCP 服務，透過 APIM GraphQL API 提供結構化貿易數據查詢",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.1",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "zod": "^3.25.67"
+  }
+}

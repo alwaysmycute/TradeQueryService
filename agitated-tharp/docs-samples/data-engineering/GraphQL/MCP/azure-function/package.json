@@ -1,0 +1,17 @@
+{
+  "name": "taiwan-trade-analytics-mcp-azure-function",
+  "version": "2.0.0",
+  "description": "Taiwan Trade Analytics MCP Server - Azure Function App deployment",
+  "type": "module",
+  "main": "src/functions/mcp.js",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests configured\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.13.1",
+    "dotenv": "^16.4.5",
+    "zod": "^3.25.67"
+  }
+}

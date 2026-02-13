@@ -1,0 +1,5 @@
+node_modules/
+.env
+src/cache/
+azure-function/local.settings.json
+azure-function/node_modules/

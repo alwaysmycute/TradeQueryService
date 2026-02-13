@@ -1,0 +1,121 @@
+<!--
+  Recommended APIM Resolver Policy for trade_monthly_by_group_countries
+
+  問題說明：
+  原始 resolver policy 使用 context.Request.Body.As<JObject>() 讀取 request body，
+  並從 top-level 取得 filter/orderBy 等參數 (incoming["filter"])。
+
+  但 APIM GraphQL 端點實際行為是：
+  1. 不支援 GraphQL variable definitions ($filter: FilterInput 語法會產生 parse error)
+  2. 直接將 client 的 query (含 inline arguments) 轉發到 Fabric GraphQL backend
+  3. Resolver policy 中的 incoming["filter"] 永遠是 null（因為 filter 在 incoming["variables"]["filter"] 裡）
+
+  結果：所有查詢都忽略 filter/orderBy，返回預設排序的最舊資料 (2020 年)。
+
+  修正方案（二擇一）：
+
+  方案 A (推薦): Pass-through 模式
+  - 直接將 client 的 GraphQL query 轉發到 Fabric backend
+  - Client 使用 inline arguments (filter/orderBy 直接寫在 query 裡)
+  - 最簡單、最透明，不會遺失任何 client 指定的參數
+
+  方案 B: Variables 模式 (如需保留 resolver 控制)
+  - 從 incoming["variables"] 正確讀取 filter/orderBy
+  - 保留 resolver 對 query 的控制權 (可限制回傳欄位、加入安全檢查等)
+-->
+
+<!-- ============================================================ -->
+<!-- 方案 A (推薦): Pass-through — 直接轉發 client query 到 Fabric  -->
+<!-- ============================================================ -->
+<!--
+<http-data-source>
+    <http-request>
+        <set-backend-service backend-id="fabric-graphql-backend" />
+        <set-method>POST</set-method>
+        <set-url>@($"https://{{graphqlapi-trade-query-host}}/v1/workspaces/{{graphqlapi-trade-query-wkspace}}/graphqlapis/{{graphqlapi-trade-query-api}}/graphql")</set-url>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+            // 直接轉發 client 的 GraphQL request body（含 inline arguments）
+            return context.Request.Body.As<string>(preserveContent: true);
+        }</set-body>
+    </http-request>
+</http-data-source>
+-->
+
+<!-- ============================================================ -->
+<!-- 方案 B: Variables 模式 — 從 variables 正確讀取參數              -->
+<!-- ============================================================ -->
+<http-data-source>
+    <http-request>
+        <set-backend-service backend-id="fabric-graphql-backend" />
+        <set-method>POST</set-method>
+        <set-url>@($"https://{{graphqlapi-trade-query-host}}/v1/workspaces/{{graphqlapi-trade-query-wkspace}}/graphqlapis/{{graphqlapi-trade-query-api}}/graphql")</set-url>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+    var incoming = context.Request.Body.As<JObject>() ?? new JObject();
+
+    // 正確讀取 variables（標準 GraphQL request 格式）
+    var vars = incoming["variables"] as JObject ?? new JObject();
+
+    var payload = new JObject();
+
+    payload["query"] = @"
+        query (
+          $first: Int
+          $after: String
+          $filter: trade_monthly_by_group_countryFilterInput
+          $orderBy: trade_monthly_by_group_countryOrderByInput
+        ) {
+          trade_monthly_by_group_countries(
+            first: $first
+            after: $after
+            filter: $filter
+            orderBy: $orderBy
+          ) {
+            items {
+              PERIOD_MONTH
+              YEAR
+              MONTH
+              TRADE_FLOW
+              INDUSTRY_ID
+              INDUSTRY
+              HS_CODE_GROUP
+              COUNTRY_ID
+              COUNTRY_COMM_ZH
+              AREA_ID
+              AREA_NM
+              TRADE_VALUE_USD_AMT
+              TRADE_VALUE_TWD_AMT
+              TRADE_WEIGHT
+              TRADE_QUANT
+              UNIT_PRICE_USD_PER_KG
+              ETL_DT
+            }
+            endCursor
+            hasNextPage
+          }
+        }
+    ";
+
+    var variables = new JObject
+    {
+        // 從 variables 物件讀取（而非 top-level）
+        ["first"] = vars["first"]?.Type == JTokenType.Integer
+            ? vars["first"]
+            : 50,
+
+        ["after"] = vars["after"],
+        ["filter"] = vars["filter"],
+        ["orderBy"] = vars["orderBy"]
+    };
+
+    payload["variables"] = variables;
+
+    return payload.ToString();
+}</set-body>
+    </http-request>
+</http-data-source>
