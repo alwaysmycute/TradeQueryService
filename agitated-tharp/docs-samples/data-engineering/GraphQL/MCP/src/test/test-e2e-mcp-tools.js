@@ -552,6 +552,240 @@ console.log('\n  📝 場景 5: 用戶問「6 月份最早的交易記錄是什�
 }
 
 // ================================================================
+//  Resolver Policy 驗證測試 — filter + orderBy + first
+//  驗證 context.GraphQL.Arguments 正確傳遞到 Fabric backend
+// ================================================================
+
+section('RESOLVER POLICY 驗證: query_country_area_reference');
+
+// RP-1: filter + first (top N) — 只回傳東南亞國家，限制 3 筆
+console.log('\n  📝 RP-1: filter(東南亞) + first(3)');
+{
+  try {
+    const result = await callMcpTool('query_country_area_reference', { area: '東南亞', first: 3 });
+    const data = parseToolResult(result);
+    const items = data?.data?.uNION_REF_COUNTRY_AREAs?.items;
+    assert(items?.length > 0 && items.length <= 3, `回傳筆數 <= 3（實際: ${items?.length}）`);
+    const allSEA = items?.every(i => i.AREA_NM?.includes('東南亞'));
+    assert(allSEA, 'filter 生效: 所有結果都在東南亞');
+    console.log(`     → ${items?.map(i => `${i.COUNTRY_COMM_ZH}(${i.ISO3})`).join(', ')}`);
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// RP-2: filter(ISO3) — 精確查詢單一國家，驗證 filter 正確傳遞
+console.log('\n  📝 RP-2: filter(ISO3=DEU) — 精確查詢德國');
+{
+  try {
+    const result = await callMcpTool('query_country_area_reference', { country: 'DEU' });
+    const data = parseToolResult(result);
+    const items = data?.data?.uNION_REF_COUNTRY_AREAs?.items;
+    assert(items?.length === 1, `精確回傳 1 筆（實際: ${items?.length}）`);
+    assert(items?.[0]?.ISO3 === 'DEU', 'ISO3 = DEU');
+    console.log(`     → ${items?.[0]?.COUNTRY_COMM_ZH} | ${items?.[0]?.AREA_NM}`);
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+
+section('RESOLVER POLICY 驗證: query_hscode_reference');
+
+// RP-3: filter(產業) + first(3) — 驗證 filter + top N
+console.log('\n  📝 RP-3: filter(機械產業) + first(3)');
+{
+  try {
+    const result = await callMcpTool('query_hscode_reference', { industryKeyword: '機械', first: 3 });
+    const data = parseToolResult(result);
+    const items = data?.data?.uNION_REF_HSCODEs?.items;
+    assert(items?.length > 0 && items.length <= 3, `回傳筆數 <= 3（實際: ${items?.length}）`);
+    const allMach = items?.every(i => i.Industry?.includes('機械'));
+    assert(allMach, 'filter 生效: 所有結果都屬於機械產業');
+    console.log(`     → ${items?.map(i => `${i.HS_Code}(${i.HS_Code_ZH?.substring(0, 15)})`).join(', ')}`);
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// RP-4: filter(HS Code 前綴) + first(5) — 驗證 startsWith filter
+console.log('\n  📝 RP-4: filter(HS Code 前綴 "84") + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_hscode_reference', { hsCode: '84', first: 5 });
+    const data = parseToolResult(result);
+    const items = data?.data?.uNION_REF_HSCODEs?.items;
+    assert(items?.length > 0 && items.length <= 5, `回傳筆數 <= 5（實際: ${items?.length}）`);
+    const allMatch = items?.every(i => i.HS_Code?.startsWith('84'));
+    assert(allMatch, 'filter 生效: 所有結果 HS_Code 以 84 開頭');
+    console.log(`     → ${items?.map(i => i.HS_Code).join(', ')}`);
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+
+section('RESOLVER POLICY 驗證: query_trade_monthly_by_code');
+
+// RP-5: filter + orderBy(ASC) + first — 驗證排序正確傳遞
+console.log('\n  📝 RP-5: filter(2024出口US) + orderBy(ASC) + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_trade_monthly_by_code', {
+      year: 2024, tradeFlow: '出口', country: 'US', order: 'ASC', first: 5,
+    });
+    const data = parseToolResult(result);
+    const items = data?.data?.trade_monthly_by_code_countries?.items;
+    assert(items?.length > 0, '有回傳資料');
+    assert(items?.length <= 5, `first 生效: 筆數 <= 5（實際: ${items?.length}）`);
+    const allUS = items?.every(i => i.COUNTRY_ID === 'US');
+    assert(allUS, 'filter 生效: 所有結果 COUNTRY_ID = US');
+    const allExport = items?.every(i => i.TRADE_FLOW === '出口');
+    assert(allExport, 'filter 生效: 所有結果 TRADE_FLOW = 出口');
+    if (items?.length >= 2) {
+      const months = items.map(i => i.PERIOD_MONTH);
+      const sorted = months.every((m, i) => i === 0 || m >= months[i - 1]);
+      assert(sorted, 'orderBy 生效: PERIOD_MONTH 按 ASC 排序');
+      console.log(`     → 月份: ${months.join(', ')}`);
+    }
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// RP-6: filter + orderBy(DESC) — 驗證 DESC 排序
+console.log('\n  📝 RP-6: filter(2024進口JP) + orderBy(DESC) + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_trade_monthly_by_code', {
+      year: 2024, tradeFlow: '進口', country: 'JP', order: 'DESC', first: 5,
+    });
+    const data = parseToolResult(result);
+    const items = data?.data?.trade_monthly_by_code_countries?.items;
+    assert(items?.length > 0, '有回傳資料');
+    const allJP = items?.every(i => i.COUNTRY_ID === 'JP');
+    assert(allJP, 'filter 生效: 所有結果 COUNTRY_ID = JP');
+    if (items?.length >= 2) {
+      const months = items.map(i => i.PERIOD_MONTH);
+      const sorted = months.every((m, i) => i === 0 || m <= months[i - 1]);
+      assert(sorted, 'orderBy 生效: PERIOD_MONTH 按 DESC 排序');
+      console.log(`     → 月份: ${months.join(', ')}`);
+    }
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+
+section('RESOLVER POLICY 驗證: query_trade_monthly_by_group');
+
+// RP-7: filter + orderBy(ASC) + first — 完整驗證
+console.log('\n  📝 RP-7: filter(2024出口電子) + orderBy(ASC) + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_trade_monthly_by_group', {
+      year: 2024, tradeFlow: '出口', industryKeyword: '電子', order: 'ASC', first: 5,
+    });
+    const data = parseToolResult(result);
+    const items = data?.data?.trade_monthly_by_group_countries?.items;
+    assert(items?.length > 0, '有回傳資料');
+    assert(items?.length <= 5, `first 生效: 筆數 <= 5（實際: ${items?.length}）`);
+    const allExport = items?.every(i => i.TRADE_FLOW === '出口');
+    assert(allExport, 'filter 生效: TRADE_FLOW = 出口');
+    const all2024 = items?.every(i => i.YEAR === 2024);
+    assert(all2024, 'filter 生效: YEAR = 2024');
+    if (items?.length >= 2) {
+      const months = items.map(i => i.PERIOD_MONTH);
+      const sorted = months.every((m, i) => i === 0 || m >= months[i - 1]);
+      assert(sorted, 'orderBy 生效: PERIOD_MONTH 按 ASC 排序');
+      console.log(`     → 月份: ${months.join(', ')}`);
+    }
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// RP-8: filter(地區) + orderBy(DESC) — 驗證地區 filter + 排序
+console.log('\n  📝 RP-8: filter(2024出口東北亞) + orderBy(DESC) + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_trade_monthly_by_group', {
+      year: 2024, tradeFlow: '出口', country: '東北亞', order: 'DESC', first: 5,
+    });
+    const data = parseToolResult(result);
+    const items = data?.data?.trade_monthly_by_group_countries?.items;
+    assert(items?.length > 0, '有回傳資料');
+    const allNEA = items?.every(i => i.AREA_NM === '東北亞');
+    assert(allNEA, 'filter 生效: AREA_NM = 東北亞');
+    if (items?.length >= 2) {
+      const months = items.map(i => i.PERIOD_MONTH);
+      const sorted = months.every((m, i) => i === 0 || m <= months[i - 1]);
+      assert(sorted, 'orderBy 生效: PERIOD_MONTH 按 DESC 排序');
+      console.log(`     → 月份: ${months.join(', ')}`);
+    }
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+
+section('RESOLVER POLICY 驗證: query_trade_transactions');
+
+// RP-9: filter(日期+國家) + orderBy(ASC) + first — 完整驗證
+console.log('\n  📝 RP-9: filter(2024-06 出口 US) + orderBy(ASC) + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_trade_transactions', {
+      startDate: '2024-06-01', endDate: '2024-06-30',
+      tradeFlow: '出口', country: 'US', order: 'ASC', first: 5,
+    });
+    const data = parseToolResult(result);
+    const items = data?.data?.tXN_MOF_NON_PROTECT_MTs?.items;
+    assert(items?.length > 0, '有回傳資料');
+    assert(items?.length <= 5, `first 生效: 筆數 <= 5（實際: ${items?.length}）`);
+    const allUS = items?.every(i => i.COUNTRY_ID === 'US');
+    assert(allUS, 'filter 生效: COUNTRY_ID = US');
+    const allExport = items?.every(i => i.TRADE_FLOW === '出口');
+    assert(allExport, 'filter 生效: TRADE_FLOW = 出口');
+    if (items?.length >= 2) {
+      const dates = items.map(i => i.TXN_DT);
+      const sorted = dates.every((d, i) => i === 0 || d >= dates[i - 1]);
+      assert(sorted, 'orderBy 生效: TXN_DT 按 ASC 排序');
+      console.log(`     → 日期: ${dates.join(', ')}`);
+    }
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// RP-10: filter(日期+品名) + orderBy(DESC) + first — DESC 排序驗證
+console.log('\n  📝 RP-10: filter(2024-06 積體電路) + orderBy(DESC) + first(5)');
+{
+  try {
+    const result = await callMcpTool('query_trade_transactions', {
+      startDate: '2024-06-01', endDate: '2024-06-30',
+      productKeyword: '積體電路', order: 'DESC', first: 5,
+    });
+    const data = parseToolResult(result);
+    const items = data?.data?.tXN_MOF_NON_PROTECT_MTs?.items;
+    assert(items?.length > 0, '有回傳資料');
+    if (items?.length >= 2) {
+      const dates = items.map(i => i.TXN_DT);
+      const sorted = dates.every((d, i) => i === 0 || d <= dates[i - 1]);
+      assert(sorted, 'orderBy 生效: TXN_DT 按 DESC 排序');
+      console.log(`     → 日期: ${dates.join(', ')}`);
+    }
+    console.log(`     → ${items?.[0]?.HS_CODE_ZH?.substring(0, 25)} | ${items?.[0]?.HS_CODE_EN?.substring(0, 30)}`);
+  } catch (e) {
+    assert(false, `失敗: ${e.message}`);
+  }
+}
+
+// ================================================================
 //  測試結果摘要
 // ================================================================
 

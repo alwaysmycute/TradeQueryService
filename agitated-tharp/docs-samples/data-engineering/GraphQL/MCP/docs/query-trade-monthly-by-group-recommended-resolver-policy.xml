@@ -5,47 +5,32 @@
   原始 resolver policy 使用 context.Request.Body.As<JObject>() 讀取 request body，
   並從 top-level 取得 filter/orderBy 等參數 (incoming["filter"])。
 
-  但 APIM GraphQL 端點實際行為是：
-  1. 不支援 GraphQL variable definitions ($filter: FilterInput 語法會產生 parse error)
-  2. 直接將 client 的 query (含 inline arguments) 轉發到 Fabric GraphQL backend
-  3. Resolver policy 中的 incoming["filter"] 永遠是 null（因為 filter 在 incoming["variables"]["filter"] 裡）
+  但在 APIM Synthetic GraphQL 模式中：
+  1. APIM 會解析收到的 GraphQL query，每個 field resolver 被呼叫時提供 context.GraphQL.Arguments
+  2. context.Request.Body 是原始 HTTP request body，在 resolver 層級用它讀引數是錯誤的抽象層級
+  3. 使用 context.Request.Body 讀取 filter/orderBy 會導致永遠是 null
 
   結果：所有查詢都忽略 filter/orderBy，返回預設排序的最舊資料 (2020 年)。
 
-  修正方案（二擇一）：
+  修正歷程：
 
-  方案 A (推薦): Pass-through 模式
-  - 直接將 client 的 GraphQL query 轉發到 Fabric backend
-  - Client 使用 inline arguments (filter/orderBy 直接寫在 query 裡)
-  - 最簡單、最透明，不會遺失任何 client 指定的參數
+  方案 A (已棄用): Pass-through 模式
+  - 直接將 client 的 request body 轉發到 Fabric backend
+  - 問題：繞過 resolver 解析，無法做任何控制或安全檢查
 
-  方案 B: Variables 模式 (如需保留 resolver 控制)
-  - 從 incoming["variables"] 正確讀取 filter/orderBy
-  - 保留 resolver 對 query 的控制權 (可限制回傳欄位、加入安全檢查等)
+  方案 B (已棄用): Variables 模式 (context.Request.Body)
+  - 從 context.Request.Body 的 variables 讀取 filter/orderBy
+  - 問題：在 Synthetic GraphQL resolver 中不應讀 context.Request.Body，應用 context.GraphQL.Arguments
+
+  方案 C (推薦，目前使用): context.GraphQL.Arguments + Variables
+  - 從 context.GraphQL.Arguments 讀取 APIM 已解析好的引數（正確的抽象層級）
+  - 用標準 $variable definitions 送往 Fabric backend（Fabric 支援標準 GraphQL variables）
+  - MCP 端 buildQuery() 繼續產生 inline args 送 APIM，完全不受影響
+  - 保留 resolver 控制力（可限制欄位、設定 first 預設值/上限等）
 -->
 
 <!-- ============================================================ -->
-<!-- 方案 A (推薦): Pass-through — 直接轉發 client query 到 Fabric  -->
-<!-- ============================================================ -->
-<!--
-<http-data-source>
-    <http-request>
-        <set-backend-service backend-id="fabric-graphql-backend" />
-        <set-method>POST</set-method>
-        <set-url>@($"https://{{graphqlapi-trade-query-host}}/v1/workspaces/{{graphqlapi-trade-query-wkspace}}/graphqlapis/{{graphqlapi-trade-query-api}}/graphql")</set-url>
-        <set-header name="Content-Type" exists-action="override">
-            <value>application/json</value>
-        </set-header>
-        <set-body>@{
-            // 直接轉發 client 的 GraphQL request body（含 inline arguments）
-            return context.Request.Body.As<string>(preserveContent: true);
-        }</set-body>
-    </http-request>
-</http-data-source>
--->
-
-<!-- ============================================================ -->
-<!-- 方案 B: Variables 模式 — 從 variables 正確讀取參數              -->
+<!-- 方案 C (推薦): context.GraphQL.Arguments + Variables 送 Fabric -->
 <!-- ============================================================ -->
 <http-data-source>
     <http-request>
@@ -56,64 +41,67 @@
             <value>application/json</value>
         </set-header>
         <set-body>@{
-    var incoming = context.Request.Body.As<JObject>() ?? new JObject();
+    // GraphQLArguments 在 key 不存在時會拋例外，必須用 try/catch
+    var args = context.GraphQL.Arguments;
 
-    // 正確讀取 variables（標準 GraphQL request 格式）
-    var vars = incoming["variables"] as JObject ?? new JObject();
+    int first = 50;
+    string after = null;
+    JToken filter = null;
+    JToken orderBy = null;
 
-    var payload = new JObject();
-
-    payload["query"] = @"
-        query (
-          $first: Int
-          $after: String
-          $filter: trade_monthly_by_group_countryFilterInput
-          $orderBy: trade_monthly_by_group_countryOrderByInput
-        ) {
-          trade_monthly_by_group_countries(
-            first: $first
-            after: $after
-            filter: $filter
-            orderBy: $orderBy
-          ) {
-            items {
-              PERIOD_MONTH
-              YEAR
-              MONTH
-              TRADE_FLOW
-              INDUSTRY_ID
-              INDUSTRY
-              HS_CODE_GROUP
-              COUNTRY_ID
-              COUNTRY_COMM_ZH
-              AREA_ID
-              AREA_NM
-              TRADE_VALUE_USD_AMT
-              TRADE_VALUE_TWD_AMT
-              TRADE_WEIGHT
-              TRADE_QUANT
-              UNIT_PRICE_USD_PER_KG
-              ETL_DT
-            }
-            endCursor
-            hasNextPage
-          }
-        }
-    ";
+    try { first   = (int)args["first"];                  } catch {}
+    try { after   = (string)args["after"];                } catch {}
+    try { filter  = JToken.FromObject(args["filter"]);   } catch {}
+    try { orderBy = JToken.FromObject(args["orderBy"]);  } catch {}
 
     var variables = new JObject
     {
-        // 從 variables 物件讀取（而非 top-level）
-        ["first"] = vars["first"]?.Type == JTokenType.Integer
-            ? vars["first"]
-            : 50,
-
-        ["after"] = vars["after"],
-        ["filter"] = vars["filter"],
-        ["orderBy"] = vars["orderBy"]
+        ["first"]   = first,
+        ["after"]   = after,
+        ["filter"]  = filter,
+        ["orderBy"] = orderBy
     };
 
-    payload["variables"] = variables;
+    var payload = new JObject
+    {
+        ["query"] = @"
+            query (
+              $first: Int
+              $after: String
+              $filter: trade_monthly_by_group_countryFilterInput
+              $orderBy: trade_monthly_by_group_countryOrderByInput
+            ) {
+              trade_monthly_by_group_countries(
+                first: $first
+                after: $after
+                filter: $filter
+                orderBy: $orderBy
+              ) {
+                items {
+                  PERIOD_MONTH
+                  YEAR
+                  MONTH
+                  TRADE_FLOW
+                  INDUSTRY_ID
+                  INDUSTRY
+                  HS_CODE_GROUP
+                  COUNTRY_ID
+                  COUNTRY_COMM_ZH
+                  AREA_ID
+                  AREA_NM
+                  TRADE_VALUE_USD_AMT
+                  TRADE_VALUE_TWD_AMT
+                  TRADE_WEIGHT
+                  TRADE_QUANT
+                  UNIT_PRICE_USD_PER_KG
+                  ETL_DT
+                }
+                endCursor
+                hasNextPage
+              }
+            }",
+        ["variables"] = variables
+    };
 
     return payload.ToString();
 }</set-body>
