@@ -20,6 +20,10 @@ import * as queryCountryAreaReference from './query-country-area-reference.js';
 import * as queryTradeMonthlyByCode from './query-trade-monthly-by-code.js';
 import * as queryTradeMonthlyByGroup from './query-trade-monthly-by-group.js';
 import * as queryTradeTransactions from './query-trade-transactions.js';
+import * as queryTradeYearlyTotals from './query-trade-yearly-totals.js';
+import * as queryTradeMonthlyTotals from './query-trade-monthly-totals.js';
+import * as queryTradeMonthlyByCountries from './query-trade-monthly-by-countries.js';
+import * as queryTradeYearlyByCountries from './query-trade-yearly-by-countries.js';
 
 
 /**
@@ -38,6 +42,10 @@ const toolModules = [
   queryTradeMonthlyByCode,
   queryTradeMonthlyByGroup,
   queryTradeTransactions,
+  queryTradeYearlyTotals,
+  queryTradeMonthlyTotals,
+  queryTradeMonthlyByCountries,
+  queryTradeYearlyByCountries,
 ];
 
 /**
