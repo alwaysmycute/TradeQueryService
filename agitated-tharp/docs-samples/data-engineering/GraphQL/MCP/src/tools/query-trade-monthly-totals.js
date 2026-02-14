@@ -25,6 +25,8 @@ export const description =
 - 只需要月度總量趨勢 → 用本工具
 - 需要看各國別的月度數據 → 用 query_trade_monthly_by_countries
 - 需要年度趨勢 → 用 query_trade_yearly_totals
+- 需要月度成長率（同比/環比）→ 用 query_trade_monthly_growth（已預算好，不需手動計算）
+- 需要各國月度市佔率 → 用 query_trade_monthly_share_by_countries
 
 可用欄位：
 - PERIOD_MONTH: 統計月份（DateTime 格式）

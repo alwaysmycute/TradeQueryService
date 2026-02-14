@@ -1,0 +1,87 @@
+<!--
+  APIM Resolver Policy for trade_yearly_growth_totals
+  對應 MCP Tool: query_trade_yearly_growth
+  APIM Resolver Name: Query-trade_yearly_growth_totals
+
+  年度貿易成長率（總體）— 含金額/重量/單價三維度的同比(YoY)成長率。
+  適合分析年度貿易趨勢，不含國家維度。
+
+  使用 context.GraphQL.Arguments 讀取 APIM 已解析的引數，
+  再用標準 $variable definitions 送往 Fabric backend。
+  GraphQLArguments 在 key 不存在時會拋例外，必須用 try/catch。
+-->
+
+<http-data-source>
+    <http-request>
+        <set-backend-service backend-id="fabric-graphql-backend" />
+        <set-method>POST</set-method>
+        <set-url>@($"https://{{graphqlapi-trade-query-host}}/v1/workspaces/{{graphqlapi-trade-query-wkspace}}/graphqlapis/{{graphqlapi-trade-query-api}}/graphql")</set-url>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+    var args = context.GraphQL.Arguments;
+
+    int first = 50;
+    string after = null;
+    JToken filter = null;
+    JToken orderBy = null;
+
+    try { first   = (int)args["first"];                  } catch {}
+    try { after   = (string)args["after"];                } catch {}
+    try { filter  = JToken.FromObject(args["filter"]);   } catch {}
+    try { orderBy = JToken.FromObject(args["orderBy"]);  } catch {}
+
+    var variables = new JObject
+    {
+        ["first"]   = first,
+        ["after"]   = after,
+        ["filter"]  = filter,
+        ["orderBy"] = orderBy
+    };
+
+    var payload = new JObject
+    {
+        ["query"] = @"
+            query (
+              $first: Int
+              $after: String
+              $filter: trade_yearly_growth_totalFilterInput
+              $orderBy: trade_yearly_growth_totalOrderByInput
+            ) {
+              trade_yearly_growth_totals(
+                first: $first
+                after: $after
+                filter: $filter
+                orderBy: $orderBy
+              ) {
+                items {
+                  YEAR
+                  TRADE_FLOW
+                  TRADE_VALUE_USD_AMT
+                  TRADE_WEIGHT
+                  UNIT_PRICE_USD_PER_KG
+                  PREV_YEAR_TRADE_VALUE_USD_AMT
+                  YOY_DELTA_TRADE_VALUE_USD_AMT
+                  YOY_GROWTH_RATE_TRADE_VALUE_USD
+                  PREV_YEAR_TRADE_WEIGHT
+                  YOY_DELTA_TRADE_WEIGHT
+                  YOY_GROWTH_RATE_TRADE_WEIGHT
+                  PREV_YEAR_UNIT_PRICE_USD_PER_KG
+                  YOY_DELTA_UNIT_PRICE_USD_PER_KG
+                  YOY_GROWTH_RATE_UNIT_PRICE_USD_PER_KG
+                  ETL_DT
+                  INDUSTRY_ID
+                  INDUSTRY
+                }
+                endCursor
+                hasNextPage
+              }
+            }",
+        ["variables"] = variables
+    };
+
+    return payload.ToString();
+}</set-body>
+    </http-request>
+</http-data-source>

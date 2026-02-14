@@ -34,9 +34,11 @@ export const description =
 用途：此工具提供台灣每月按個別 HS Code 與交易國家彙總的進出口貿易數據。
 是分析特定商品貿易趨勢最常用的工具。資料已預先彙總，查詢效率高。
 
-與 query_trade_monthly_by_group 的選擇建議：
+與其他工具的選擇建議：
 - 需要看特定商品（如某個 HS Code）的數據 → 用本工具
 - 需要看整個產業（如「電子零組件」產業整體）的數據 → 用 query_trade_monthly_by_group
+- 需要成長率（同比/環比）→ 用 query_trade_monthly_growth_by_countries（已預算好）
+- 需要市佔率（佔比）→ 用 query_trade_monthly_share_by_countries（已預算好）
 
 可用欄位：
 - PERIOD_MONTH: 統計月份（DateTime 格式）

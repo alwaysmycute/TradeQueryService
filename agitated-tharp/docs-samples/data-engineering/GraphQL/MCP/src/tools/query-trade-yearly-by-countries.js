@@ -25,6 +25,10 @@ export const description =
 - 需要各國年度數據 → 用本工具
 - 不需要國家維度、只看年度總量 → 用 query_trade_yearly_totals
 - 需要月度國別數據 → 用 query_trade_monthly_by_countries
+- 需要各國年度市佔率（佔比）→ 用 query_trade_yearly_share_by_countries（已預算好）
+- 需要年度成長率 → 用 query_trade_yearly_growth
+
+AREA_NM 有效值：東北亞、東南亞、南亞、西亞、歐洲、北美洲、中南美洲、大洋洲、非洲
 
 可用欄位：
 - YEAR: 年份（整數）

@@ -25,6 +25,8 @@ export const description =
 - 只需要年度總量趨勢 → 用本工具
 - 需要看各國別的年度數據 → 用 query_trade_yearly_by_countries
 - 需要月度趨勢 → 用 query_trade_monthly_totals 或 query_trade_monthly_by_countries
+- 需要年度成長率（年增率、同比）→ 用 query_trade_yearly_growth（已預算好，不需手動計算）
+- 需要各國年度市佔率 → 用 query_trade_yearly_share_by_countries
 
 可用欄位：
 - YEAR: 年份（整數）

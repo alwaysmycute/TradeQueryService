@@ -26,6 +26,10 @@ export const description =
 - 不需要國家維度、只看月度總量 → 用 query_trade_monthly_totals
 - 需要年度國別數據 → 用 query_trade_yearly_by_countries
 - 需要更細的 HS Code 級別 → 用 query_trade_monthly_by_code
+- 需要各國月度成長率（同比/環比）→ 用 query_trade_monthly_growth_by_countries（已預算好）
+- 需要各國月度市佔率（佔比）→ 用 query_trade_monthly_share_by_countries（已預算好）
+
+AREA_NM 有效值：東北亞、東南亞、南亞、西亞、歐洲、北美洲、中南美洲、大洋洲、非洲
 
 可用欄位：
 - PERIOD_MONTH: 統計月份（DateTime 格式）

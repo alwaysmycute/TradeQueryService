@@ -32,6 +32,8 @@ export const description =
 請優先使用以下工具，僅在它們無法滿足需求時才使用本工具：
 - query_trade_monthly_by_code: 按 HS Code 的月度統計（最常用）
 - query_trade_monthly_by_group: 按產業群組的月度統計（含地區資訊）
+- query_trade_monthly_growth / query_trade_monthly_growth_by_countries: 成長率分析（已預算好）
+- query_trade_monthly_share_by_countries / query_trade_yearly_share_by_countries: 市佔率分析（已預算好）
 
 本工具的獨特價值（其他工具沒有的功能）：
 1. 日級別交易日期 (TXN_DT) - 可查詢特定日期的交易

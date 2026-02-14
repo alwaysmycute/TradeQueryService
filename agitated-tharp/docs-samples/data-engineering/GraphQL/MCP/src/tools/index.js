@@ -24,6 +24,11 @@ import * as queryTradeYearlyTotals from './query-trade-yearly-totals.js';
 import * as queryTradeMonthlyTotals from './query-trade-monthly-totals.js';
 import * as queryTradeMonthlyByCountries from './query-trade-monthly-by-countries.js';
 import * as queryTradeYearlyByCountries from './query-trade-yearly-by-countries.js';
+import * as queryTradeMonthlyGrowth from './query-trade-monthly-growth.js';
+import * as queryTradeYearlyGrowth from './query-trade-yearly-growth.js';
+import * as queryTradeMonthlyGrowthByCountries from './query-trade-monthly-growth-by-countries.js';
+import * as queryTradeMonthlyShareByCountries from './query-trade-monthly-share-by-countries.js';
+import * as queryTradeYearlyShareByCountries from './query-trade-yearly-share-by-countries.js';
 
 
 /**
@@ -46,6 +51,11 @@ const toolModules = [
   queryTradeMonthlyTotals,
   queryTradeMonthlyByCountries,
   queryTradeYearlyByCountries,
+  queryTradeMonthlyGrowth,
+  queryTradeYearlyGrowth,
+  queryTradeMonthlyGrowthByCountries,
+  queryTradeMonthlyShareByCountries,
+  queryTradeYearlyShareByCountries,
 ];
 
 /**

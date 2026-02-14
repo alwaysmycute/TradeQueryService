@@ -45,7 +45,9 @@ export const description =
 與 query_trade_monthly_by_code 的選擇建議：
 - 需要看特定商品（如某個 HS Code）的數據 → 用 query_trade_monthly_by_code
 - 需要看整個產業（如「電子零組件」產業整體）的數據 → 用本工具
-- 需要按地區（如「亞洲」「歐洲」）彙總分析 → 用本工具（已含地區欄位）
+- 需要按地區（如「東南亞」「歐洲」）彙總分析 → 用本工具（已含地區欄位）
+- 需要成長率分析 → 用 query_trade_monthly_growth 或 query_trade_monthly_growth_by_countries
+- 需要市佔率分析 → 用 query_trade_monthly_share_by_countries
 
 可用欄位：
 - PERIOD_MONTH: 統計月份（DateTime 格式）
@@ -58,7 +60,7 @@ export const description =
 - COUNTRY_ID: 國家代碼（ISO2 格式，如 "US"、"JP"、"DE"）
 - COUNTRY_COMM_ZH: 國家中文名稱
 - AREA_ID: 地區代碼
-- AREA_NM: 地區名稱（如「亞洲」「歐洲」「北美洲」「中東」）
+- AREA_NM: 地區名稱（有效值：東北亞、東南亞、南亞、西亞、歐洲、北美洲、中南美洲、大洋洲、非洲）
 - TRADE_VALUE_USD_AMT: 貿易金額_美元
 - TRADE_VALUE_TWD_AMT: 貿易金額_新台幣
 - TRADE_WEIGHT: 貿易重量_公斤
@@ -77,8 +79,8 @@ TRADE_FLOW 值說明：
    filter: { YEAR: { eq: 2024 }, TRADE_FLOW: { eq: "出口" } }, groupBy: ["AREA_NM"]
 3. 比較各產業出口表現:
    filter: { YEAR: { eq: 2024 }, TRADE_FLOW: { eq: "出口" } }, groupBy: ["INDUSTRY"]
-4. 查詢對亞洲地區的進口資料:
-   filter: { AREA_NM: { eq: "亞洲" }, TRADE_FLOW: { eq: "進口" } }
+4. 查詢對東南亞地區的進口資料:
+   filter: { AREA_NM: { eq: "東南亞" }, TRADE_FLOW: { eq: "進口" } }
 5. 按產業和地區交叉分析:
    groupBy: ["INDUSTRY", "AREA_NM"], filter: { YEAR: { eq: 2024 } }`;
 
