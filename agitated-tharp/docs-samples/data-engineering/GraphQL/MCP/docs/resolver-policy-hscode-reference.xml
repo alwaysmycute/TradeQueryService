@@ -1,0 +1,94 @@
+<!--
+  APIM Resolver Policy for uNION_REF_HSCODEs
+  對應 MCP Tool: query_hscode_reference
+
+  HS Code 參考資料表。
+  包含產業分類、HS Code 編碼、中文品名、計量單位等參考資訊。
+  資料量小、查詢速度快。
+
+  方案 A (推薦): Pass-through — 與現行 MCP tools (inline arguments) 相容
+  方案 B (備用): Variables 模式 — 需修改 tools 送 variables 才能使用
+-->
+
+<!-- ============================================================ -->
+<!-- 方案 A (推薦): Pass-through — 直接轉發 client query 到 Fabric  -->
+<!-- ============================================================ -->
+<http-data-source>
+    <http-request>
+        <set-backend-service backend-id="fabric-graphql-backend" />
+        <set-method>POST</set-method>
+        <set-url>@($"https://{{graphqlapi-trade-query-host}}/v1/workspaces/{{graphqlapi-trade-query-wkspace}}/graphqlapis/{{graphqlapi-trade-query-api}}/graphql")</set-url>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+            // 直接轉發 client 的 GraphQL request body（含 inline arguments）
+            return context.Request.Body.As<string>(preserveContent: true);
+        }</set-body>
+    </http-request>
+</http-data-source>
+
+<!-- ============================================================ -->
+<!-- 方案 B (備用): Variables 模式 — 從 variables 讀取參數          -->
+<!-- ============================================================ -->
+<!--
+<http-data-source>
+    <http-request>
+        <set-backend-service backend-id="fabric-graphql-backend" />
+        <set-method>POST</set-method>
+        <set-url>@($"https://{{graphqlapi-trade-query-host}}/v1/workspaces/{{graphqlapi-trade-query-wkspace}}/graphqlapis/{{graphqlapi-trade-query-api}}/graphql")</set-url>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+    var incoming = context.Request.Body.As<JObject>() ?? new JObject();
+    var vars = incoming["variables"] as JObject ?? new JObject();
+
+    var payload = new JObject();
+
+    payload["query"] = @"
+        query (
+          $first: Int
+          $after: String
+          $filter: UNION_REF_HSCODEFilterInput
+          $orderBy: UNION_REF_HSCODEOrderByInput
+        ) {
+          uNION_REF_HSCODEs(
+            first: $first
+            after: $after
+            filter: $filter
+            orderBy: $orderBy
+          ) {
+            items {
+              Report_ID
+              Industry_ID
+              Industry
+              HS_Code_Group
+              HS_Code
+              HS_Code_ZH
+              Unit_Name
+              Unit
+            }
+            endCursor
+            hasNextPage
+          }
+        }
+    ";
+
+    var variables = new JObject
+    {
+        ["first"] = vars["first"]?.Type == JTokenType.Integer
+            ? vars["first"]
+            : 50,
+        ["after"] = vars["after"],
+        ["filter"] = vars["filter"],
+        ["orderBy"] = vars["orderBy"]
+    };
+
+    payload["variables"] = variables;
+
+    return payload.ToString();
+}</set-body>
+    </http-request>
+</http-data-source>
+-->

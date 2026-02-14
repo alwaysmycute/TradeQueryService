@@ -6,19 +6,17 @@
  * ⚠️ 重要注意事項：
  * 此表包含所有進出口交易的原始明細資料，資料量極大，查詢時間較長。
  * 請僅在以下情況使用此工具：
- * 1. 其他彙總工具（query_trade_monthly_by_code / query_trade_monthly_by_group）
- *    無法提供所需的資料細節
+ * 1. 其他彙總工具無法提供所需的資料細節
  * 2. 需要查詢日級別（而非月級別）的交易資料
  * 3. 需要查詢其他工具沒有的欄位（如 HS_CODE_EN、COUNTRY_EN、RATE_VALUE 等）
  *
- * 此表相比月度彙總表，額外包含：
- * - 英文品名 (HS_CODE_EN)
- * - 英文國名 (COUNTRY_EN)
- * - 原始國家中文名 (COUNTRY_ZH) 與通用國家中文名 (COUNTRY_COMM_ZH)
- * - 原始重量 (TRADE_WEIGHT_ORG)
- * - 匯率 (RATE_VALUE)
- * - 日級別交易日期 (TXN_DT)
+ * ⚠️ Important:
+ * - 使用簡化參數介面，不直接傳入 GraphQL filter/orderBy
+ * - TRADE_FLOW 在此表為 "出口" / "進口"
+ * - COUNTRY_ID 在此表為 ISO2 格式
+ * - 務必指定日期範圍以避免查詢過多資料
  */
+console.log('🔥 loading query_trade_transactions tool');
 
 import { z } from 'zod';
 import { executeGraphQL } from '../utils/graphql-client.js';
@@ -34,8 +32,6 @@ export const description =
 請優先使用以下工具，僅在它們無法滿足需求時才使用本工具：
 - query_trade_monthly_by_code: 按 HS Code 的月度統計（最常用）
 - query_trade_monthly_by_group: 按產業群組的月度統計（含地區資訊）
-- query_hscode_reference: HS Code 參考資料查詢
-- query_country_area_reference: 國家/地區參考資料查詢
 
 本工具的獨特價值（其他工具沒有的功能）：
 1. 日級別交易日期 (TXN_DT) - 可查詢特定日期的交易
@@ -48,12 +44,12 @@ export const description =
 - HS_CODE: HS Code 貨品代碼
 - HS_CODE_ZH: HS Code 中文品名
 - HS_CODE_EN: HS Code 英文品名（本表獨有）
-- COUNTRY_ID: 國家代碼（ISO3 格式）
+- COUNTRY_ID: 國家代碼（ISO2 格式）
 - COUNTRY_ZH: 國家中文名稱（原始）
 - COUNTRY_EN: 國家英文名稱（本表獨有）
 - COUNTRY_COMM_ZH: 國家中文通用名稱
 - COUNTRY_COMM_EN: 國家英文通用名稱
-- TRADE_FLOW: 貿易流向（"1"=出口, "2"=進口）
+- TRADE_FLOW: 貿易流向（"出口"=Export, "進口"=Import）
 - TRADE_VALUE_TWD_AMT: 貿易金額_新台幣
 - TRADE_QUANT: 貿易數量
 - TRADE_WEIGHT_ORG: 原始貿易重量（本表獨有）
@@ -62,74 +58,82 @@ export const description =
 - TRADE_VALUE_USD_AMT: 貿易金額_美元
 - ETL_DT: 資料更新日期
 
-使用建議：
-- 務必指定日期範圍篩選 (TXN_DT) 以限制查詢資料量
-- 建議搭配 HS_CODE 或 COUNTRY_ID 等篩選條件
-- 設定合理的 first 參數（建議 100-500）
-- 避免不帶篩選條件的查詢
-
 常見使用場景：
-1. 查詢特定日期的交易明細:
-   filter: { TXN_DT: { gte: "2024-06-01T00:00:00Z", lte: "2024-06-30T23:59:59Z" }, HS_CODE: { startsWith: "8542" } }
-2. 查詢含英文品名的資料:
-   filter: { HS_CODE: { eq: "847130" } }, fields: ["TXN_DT","HS_CODE","HS_CODE_ZH","HS_CODE_EN","TRADE_VALUE_USD_AMT"]
+1. 查詢特定日期範圍的半導體交易:
+   startDate: "2024-06-01", endDate: "2024-06-30", hsCode: "8542"
+2. 查詢對美國的出口（含英文品名）:
+   startDate: "2024-01-01", endDate: "2024-01-31", country: "USA", tradeFlow: "出口"
 3. 查詢含匯率的交易資料:
-   filter: { TXN_DT: { gte: "2024-01-01T00:00:00Z" }, COUNTRY_ID: { eq: "USA" } }`;
+   startDate: "2024-06-01", endDate: "2024-06-30", country: "JPN"`;
 
 export const parameters = z.object({
-  first: z.number().optional().describe(
-    '回傳筆數上限。預設 100，最大 5000。因資料量大，建議設定較小值（100-500）。'
-  ),
-  after: z.string().optional().describe(
-    '分頁游標。使用前次查詢回傳的 endCursor 取得下一頁。'
-  ),
-  filter: z.object({
-    TXN_DT: z.any().optional().describe('交易日期篩選（日期篩選: gte/lte）⚠️ 強烈建議指定此欄位以限制查詢範圍'),
-    HS_CODE: z.any().optional().describe('HS Code 篩選（字串篩選: eq/startsWith/contains/in）'),
-    HS_CODE_ZH: z.any().optional().describe('中文品名篩選'),
-    HS_CODE_EN: z.any().optional().describe('英文品名篩選'),
-    COUNTRY_ID: z.any().optional().describe('國家代碼篩選（ISO3）'),
-    COUNTRY_ZH: z.any().optional().describe('國家中文名稱篩選（原始）'),
-    COUNTRY_EN: z.any().optional().describe('國家英文名稱篩選'),
-    COUNTRY_COMM_ZH: z.any().optional().describe('國家中文通用名稱篩選'),
-    COUNTRY_COMM_EN: z.any().optional().describe('國家英文通用名稱篩選'),
-    TRADE_FLOW: z.any().optional().describe('貿易流向篩選（"1"=出口, "2"=進口）'),
-    TRADE_VALUE_TWD_AMT: z.any().optional().describe('新台幣金額篩選'),
-    TRADE_QUANT: z.any().optional().describe('數量篩選'),
-    TRADE_WEIGHT_ORG: z.any().optional().describe('原始重量篩選'),
-    TRADE_WEIGHT: z.any().optional().describe('重量篩選（公斤）'),
-    RATE_VALUE: z.any().optional().describe('匯率篩選'),
-    TRADE_VALUE_USD_AMT: z.any().optional().describe('美元金額篩選'),
-    ETL_DT: z.any().optional().describe('資料更新日期篩選'),
-    and: z.any().optional().describe('AND 複合條件'),
-    or: z.any().optional().describe('OR 複合條件'),
-  }).optional().describe(
-    '篩選條件。⚠️ 務必指定 TXN_DT 日期範圍，避免查詢過多資料。'
-  ),
-  orderBy: z.record(z.enum(['ASC', 'DESC'])).optional().describe(
-    '排序條件。例: { "TXN_DT": "DESC", "TRADE_VALUE_USD_AMT": "DESC" }'
-  ),
-  fields: z.array(z.string()).optional().describe(
-    '指定回傳欄位。建議僅選取需要的欄位以減少資料傳輸量。'
-  ),
-  groupBy: z.array(z.string()).optional().describe(
-    '分組欄位。例: ["HS_CODE","HS_CODE_ZH"] 按商品分組。'
-  ),
-  aggregations: z.array(z.object({
-    field: z.string().describe('聚合欄位（數值欄位: TRADE_VALUE_TWD_AMT, TRADE_QUANT, TRADE_WEIGHT_ORG, TRADE_WEIGHT, RATE_VALUE, TRADE_VALUE_USD_AMT）'),
-    function: z.enum(['sum', 'avg', 'min', 'max', 'count']).describe('聚合函數'),
-  })).optional().describe(
-    '聚合操作。搭配 groupBy 使用。'
-  ),
+  startDate: z.string().optional().describe('起始日期，格式 YYYY-MM-DD，例如 "2024-01-01"。⚠️ 強烈建議指定'),
+  endDate: z.string().optional().describe('結束日期，格式 YYYY-MM-DD，例如 "2024-01-31"'),
+  tradeFlow: z.enum(['出口', '進口']).optional().describe('出口或進口'),
+  hsCode: z.string().optional().describe('HS Code 或前綴，例如 "8542"'),
+  productKeyword: z.string().optional().describe('中文品名關鍵字，例如 "積體電路"'),
+  country: z.string().optional().describe('國家代碼(ISO2 如 US、JP)或中文名(如 美國)'),
+  order: z.enum(['ASC', 'DESC']).optional().describe('依交易日期排序'),
+  first: z.number().optional().describe('回傳筆數，預設 50，建議 100-500'),
 });
 
-export async function handler(params) {
+export const buildFilterFromParams = (params) => {
+  const filter = {};
+
+  // 日期範圍
+  if (params.startDate || params.endDate) {
+    const dtFilter = {};
+    if (params.startDate) {
+      dtFilter.gte = `${params.startDate}T00:00:00Z`;
+    }
+    if (params.endDate) {
+      dtFilter.lte = `${params.endDate}T23:59:59Z`;
+    }
+    filter.TXN_DT = dtFilter;
+  }
+
+  if (params.tradeFlow) {
+    const tfRaw = String(params.tradeFlow).toLowerCase();
+    let tf;
+    if (tfRaw === '出口' || tfRaw === '1' || tfRaw === 'export') tf = '出口';
+    else if (tfRaw === '進口' || tfRaw === '2' || tfRaw === 'import') tf = '進口';
+    else tf = String(params.tradeFlow);
+
+    filter.TRADE_FLOW = { eq: tf };
+  }
+  if (params.hsCode) {
+    const code = params.hsCode.trim();
+    if (code.length >= 6) {
+      filter.HS_CODE = { eq: code };
+    } else {
+      filter.HS_CODE = { startsWith: code };
+    }
+  }
+  if (params.productKeyword) {
+    filter.HS_CODE_ZH = { contains: params.productKeyword };
+  }
+  if (params.country) {
+    const val = params.country.trim();
+    if (/^[A-Z]{2}$/i.test(val)) {
+      filter.COUNTRY_ID = { eq: val.toUpperCase() };
+    } else {
+      filter.COUNTRY_COMM_ZH = { contains: val };
+    }
+  }
+  return Object.keys(filter).length > 0 ? filter : undefined;
+};
+
+export const execute = async (params) => {
+  const filter = buildFilterFromParams(params);
+  const normalizedParams = {
+    filter,
+    orderBy: params.order ? { TXN_DT: params.order } : undefined,
+    first: Math.min(params.first ?? 50, config.maxPageSize),
+  };
+
   try {
-    const first = Math.min(params.first || config.defaultPageSize, config.maxPageSize);
-    const { query } = buildQuery('TXN_MOF_NON_PROTECT_MT', {
-      ...params,
-      first,
-    });
+    const RESOLVER = 'TXN_MOF_NON_PROTECT_MT';
+    const { query } = buildQuery(RESOLVER, normalizedParams);
 
     const result = await executeGraphQL({
       endpoint: config.graphqlEndpoint,
@@ -152,4 +156,8 @@ export async function handler(params) {
       isError: true,
     };
   }
+};
+
+export async function handler(params) {
+  return execute(params);
 }
