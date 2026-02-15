@@ -83,21 +83,6 @@ export function registerAllTools(server) {
     );
     console.log(`Registered tool: ${tool.name}`);
 
-    // also register a camelCase alias if the tool name uses snake_case
-    const camelAlias = tool.name.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-    if (camelAlias !== tool.name) {
-      try {
-        server.tool(
-          camelAlias,
-          `${tool.description} (alias for ${tool.name})`,
-          schema,
-          tool.handler
-        );
-        console.log(`Registered tool alias: ${camelAlias} -> ${tool.name}`);
-      } catch (e) {
-        console.warn(`Failed to register alias ${camelAlias}: ${e.message}`);
-      }
-    }
   }
 
   console.log(`Total tools registered: ${toolModules.length}`);
