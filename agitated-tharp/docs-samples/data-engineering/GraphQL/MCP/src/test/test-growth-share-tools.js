@@ -113,17 +113,17 @@ console.log('\n  1-1: 2024 年出口月度成長率');
   }
 }
 
-// 1-2: 電子產業成長率
-console.log('\n  1-2: 電子產業月度成長率');
+// 1-2: 自行車產業成長率
+console.log('\n  1-2: 自行車產業月度成長率');
 {
   try {
     const result = await callMcpTool('query_trade_monthly_growth', {
-      year: 2024, tradeFlow: '出口', industryKeyword: '電子', first: 3,
+      year: 2024, tradeFlow: '出口', industryKeyword: '自行車', first: 3,
     });
     const data = parseToolResult(result);
     const items = data?.data?.trade_monthly_growth_totals?.items;
-    assert(items?.length > 0, '找到電子產業成長率資料');
-    assert(items?.every(i => i.INDUSTRY?.includes('電子')), 'INDUSTRY filter 生效');
+    assert(items?.length > 0, '找到自行車產業成長率資料');
+    assert(items?.every(i => i.INDUSTRY?.includes('自行車')), 'INDUSTRY filter 生效');
     console.log(`     → ${items?.[0]?.INDUSTRY}, YoY: ${items?.[0]?.YOY_GROWTH_RATE_TRADE_VALUE_USD}`);
   } catch (e) {
     assert(false, `MCP 呼叫失敗: ${e.message}`);
@@ -169,17 +169,17 @@ console.log('\n  2-1: 2024 年出口年度成長率');
   }
 }
 
-// 2-2: 電子產業歷年成長
-console.log('\n  2-2: 電子產業歷年成長趨勢');
+// 2-2: 自行車產業歷年成長
+console.log('\n  2-2: 自行車產業歷年成長趨勢');
 {
   try {
     const result = await callMcpTool('query_trade_yearly_growth', {
-      tradeFlow: '出口', industryKeyword: '電子', order: 'ASC', first: 10,
+      tradeFlow: '出口', industryKeyword: '自行車', order: 'ASC', first: 10,
     });
     const data = parseToolResult(result);
     const items = data?.data?.trade_yearly_growth_totals?.items;
-    assert(items?.length > 0, '找到電子產業年度成長資料');
-    assert(items?.every(i => i.INDUSTRY?.includes('電子')), 'INDUSTRY filter 生效');
+    assert(items?.length > 0, '找到自行車產業年度成長資料');
+    assert(items?.every(i => i.INDUSTRY?.includes('自行車')), 'INDUSTRY filter 生效');
     if (items?.length >= 2) {
       const years = items.map(i => i.YEAR);
       const sorted = years.every((y, i) => i === 0 || y >= years[i - 1]);
@@ -235,17 +235,17 @@ console.log('\n  3-2: 東南亞進口月度成長');
   }
 }
 
-// 3-3: 電子產業各國成長
-console.log('\n  3-3: 電子產業各國出口成長');
+// 3-3: 自行車產業各國成長
+console.log('\n  3-3: 自行車產業各國出口成長');
 {
   try {
     const result = await callMcpTool('query_trade_monthly_growth_by_countries', {
-      year: 2024, tradeFlow: '出口', industryKeyword: '電子', first: 5,
+      year: 2024, tradeFlow: '出口', industryKeyword: '自行車', first: 5,
     });
     const data = parseToolResult(result);
     const items = data?.data?.trade_monthly_growth_by_countries?.items;
-    assert(items?.length > 0, '找到電子產業成長資料');
-    assert(items?.every(i => i.INDUSTRY?.includes('電子')), 'INDUSTRY filter 生效');
+    assert(items?.length > 0, '找到自行車產業成長資料');
+    assert(items?.every(i => i.INDUSTRY?.includes('自行車')), 'INDUSTRY filter 生效');
     assert(items?.[0]?.AREA_NM !== undefined, '有 AREA_NM 欄位');
     console.log(`     → ${items?.[0]?.COUNTRY_COMM_ZH}(${items?.[0]?.AREA_NM}): YoY=${items?.[0]?.YOY_GROWTH_RATE_TRADE_VALUE_USD}`);
   } catch (e) {
@@ -297,17 +297,17 @@ console.log('\n  4-2: 東南亞月度進口佔比');
   }
 }
 
-// 4-3: 電子產業各國市佔
-console.log('\n  4-3: 電子產業各國出口市佔');
+// 4-3: 自行車產業各國市佔
+console.log('\n  4-3: 自行車產業各國出口市佔');
 {
   try {
     const result = await callMcpTool('query_trade_monthly_share_by_countries', {
-      year: 2024, tradeFlow: '出口', industryKeyword: '電子', first: 5,
+      year: 2024, tradeFlow: '出口', industryKeyword: '自行車', first: 5,
     });
     const data = parseToolResult(result);
     const items = data?.data?.trade_monthly_share_by_countries?.items;
-    assert(items?.length > 0, '找到電子產業市佔資料');
-    assert(items?.every(i => i.INDUSTRY?.includes('電子')), 'INDUSTRY filter 生效');
+    assert(items?.length > 0, '找到自行車產業市佔資料');
+    assert(items?.every(i => i.INDUSTRY?.includes('自行車')), 'INDUSTRY filter 生效');
     console.log(`     → ${items?.[0]?.COUNTRY_COMM_ZH}: ${items?.[0]?.SHARE_RATIO_TRADE_VALUE_USD}`);
   } catch (e) {
     assert(false, `MCP 呼叫失敗: ${e.message}`);
