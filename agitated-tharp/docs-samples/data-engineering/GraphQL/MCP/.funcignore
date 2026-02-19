@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+node_modules
+*.md
+screenshot-*.png
+docs
+scripts
+src/test
+src/cache
+azure-function/.funcignore
+azure-function/node_modules

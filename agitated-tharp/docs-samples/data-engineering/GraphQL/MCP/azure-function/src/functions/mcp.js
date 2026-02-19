@@ -18,9 +18,9 @@
 
 import { app } from '@azure/functions';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createMcpServer } from '../../src/server.js';
-import { getCacheStatus } from '../../src/utils/schema-cache.js';
-import { getToolNames } from '../../src/tools/index.js';
+import { createMcpServer } from '../../../src/server.js';
+import { getCacheStatus } from '../../../src/utils/schema-cache.js';
+import { getToolNames } from '../../../src/tools/index.js';
 
 // MCP 端點 - HTTP Trigger
 app.http('mcp', {
@@ -35,13 +35,10 @@ app.http('mcp', {
       const body = await request.json();
 
       // 建立一次性 transport 處理請求
+      // Azure Functions 不支援 SSE streaming，使用 JSON response 模式
       const transport = new StreamableHTTPServerTransport({
-        sessionManager: {
-          sessionIdGenerator: () => `az-session-${Date.now()}`,
-          getSession: () => null,
-          createSession: (id) => ({ id, created: Date.now() }),
-          deleteSession: () => {},
-        },
+        sessionIdGenerator: undefined,  // stateless mode for Azure Functions
+        enableJsonResponse: true,
       });
 
       await server.connect(transport);
@@ -81,6 +78,7 @@ app.http('mcp', {
             this._body = JSON.stringify(data);
             resolve(this);
           },
+          flushHeaders() { return this; },
           on() { return this; },
           once() { return this; },
           emit() { return this; },
