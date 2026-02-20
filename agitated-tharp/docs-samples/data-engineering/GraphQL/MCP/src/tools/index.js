@@ -30,13 +30,76 @@ import * as queryTradeMonthlyGrowthByCountries from './query-trade-monthly-growt
 import * as queryTradeMonthlyShareByCountries from './query-trade-monthly-share-by-countries.js';
 import * as queryTradeYearlyShareByCountries from './query-trade-yearly-share-by-countries.js';
 
+/**
+ * 提取 Zod Schema 的原始形狀（ZodRawShape）
+ *
+ * MCP SDK expects a ZodRawShape (plain object of Zod types), not a ZodObject.
+ * 如果 tool.parameters 是一個 z.object()，則提取 .shape；否則直接使用。
+ *
+ * 此函數會驗證 schema 格式，並在發現問題時拋出錯誤。
+ *
+ * @param {any} schema - 工具的 parameters 定義
+ * @returns {object} ZodRawShape
+ * @throws {Error} 如果 schema 格式無效
+ */
+function extractZodSchema(schema) {
+  // 情況 1：schema 是 ZodObject，提取 .shape
+  if (schema && typeof schema === 'object' && schema.shape && typeof schema.shape === 'object') {
+    return schema.shape;
+  }
+
+  // 情況 2：schema 本身就是 ZodRawShape（plain object of Zod types）
+  if (schema && typeof schema === 'object' && !schema._def) {
+    return schema;
+  }
+
+  // 情況 3：無效的 schema
+  throw new Error(
+    `Invalid parameters schema: expected ZodObject or ZodRawShape (plain object), got ${typeof schema}. ` +
+    `Tool parameters should be defined as: \n` +
+    `export const parameters = z.object({ ... })`
+  );
+}
+
+/**
+ * 驗證工具模組是否符合 MCP 要求
+ *
+ * @param {any} tool - 工具模組
+ * @returns {boolean} 是否有效
+ */
+function validateToolModule(tool) {
+  const requiredExports = ['name', 'description', 'parameters', 'handler'];
+  
+  for (const exportName of requiredExports) {
+    if (!tool[exportName]) {
+      console.error(`Tool module missing required export: ${exportName}`);
+      return false;
+    }
+  }
+
+  // 驗證 handler 是一個異步函數
+  if (typeof tool.handler !== 'function') {
+    console.error(`Tool handler must be an async function, got: ${typeof tool.handler}`);
+    return false;
+  }
+
+  // 驗證 schema 格式
+  try {
+    extractZodSchema(tool.parameters);
+  } catch (err) {
+    console.error(`Tool parameters schema validation failed for tool "${tool.name}":`, err.message);
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * 所有工具模組列表
  *
  * 新增 resolver 工具時，只需：
  * 1. 建立新的工具檔案（可參考現有工具的格式）
- * 2. 在 utils/query-builder.js 的 RESOLVER_REGISTRY 中新增 resolver 設定
+ * 2. 在 utils/query-builder.js 的 RESOLVER_REGISTRY 中新增 resolver 定義
  * 3. 在此處 import 並加入 toolModules 陣列
  */
 const toolModules = [
@@ -64,28 +127,42 @@ const toolModules = [
  * @param {McpServer} server - MCP Server 實例
  */
 export function registerAllTools(server) {
+  let registeredCount = 0;
+  let skippedCount = 0;
+
   for (const tool of toolModules) {
-    if (!tool.name || !tool.description || !tool.parameters || !tool.handler) {
-      console.warn(`Skipping invalid tool module: missing required exports`);
+    if (!validateToolModule(tool)) {
+      console.warn(`Skipping invalid tool module: ${tool.name || 'unknown'}`);
+      skippedCount++;
       continue;
     }
 
-    // MCP SDK expects a ZodRawShape (plain object of Zod types), not a ZodObject.
-    // If tool.parameters is a z.object(), extract .shape; otherwise use as-is.
-    const schema = tool.parameters.shape ?? tool.parameters;
+    try {
+      // 提取 Zod Schema 的原始形狀
+      const schema = extractZodSchema(tool.parameters);
 
-    // register main name
-    server.tool(
-      tool.name,
-      tool.description,
-      schema,
-      tool.handler
-    );
-    console.log(`Registered tool: ${tool.name}`);
+      // 註冊工具到 MCP Server
+      server.tool(
+        tool.name,
+        tool.description,
+        schema,
+        tool.handler
+      );
 
+      console.log(`✅ Registered tool: ${tool.name}`);
+      registeredCount++;
+    } catch (err) {
+      console.error(`❌ Failed to register tool "${tool.name}":`, err.message);
+      skippedCount++;
+    }
   }
 
-  console.log(`Total tools registered: ${toolModules.length}`);
+  console.log(`\n═════════════════════════════════════════════════`);
+  console.log(`Tool Registration Summary:`);
+  console.log(`  ✅ Registered: ${registeredCount} tools`);
+  console.log(`  ❌ Skipped:   ${skippedCount} tools`);
+  console.log(`  📊 Total:     ${toolModules.length} tools`);
+  console.log(`═════════════════════════════════════════════════\n`);
 }
 
 /**

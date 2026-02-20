@@ -67,40 +67,25 @@ export const buildFilterFromParams = (params) => {
   return Object.keys(filter).length > 0 ? filter : undefined;
 };
 
-
 export async function handler(params) {
   const filter = buildFilterFromParams(params);
   const normalizedParams = {
     filter,
-    orderBy: params.orderBy ? { [params.orderBy]: params.order || 'ASC' } : undefined,
+    orderBy: params.order ? { PERIOD_MONTH: params.order } : undefined,
     first: Math.min(params.first ?? 50, config.maxPageSize),
   };
 
   try {
-    const RESOLVER = 'trade_monthly_growth_total';
-    const { query } = buildQuery(RESOLVER, normalizedParams);
-
+    const { query } = buildQuery('trade_monthly_growth_total', normalizedParams);
     const result = await executeGraphQL({
       endpoint: config.graphqlEndpoint,
       subscriptionKey: config.subscriptionKey,
       query,
     });
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify(result),
-      }],
-    };
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   } catch (err) {
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          error: 'Trade monthly growth query failed',
-          details: err.message,
-        }),
-      }],
+      content: [{ type: 'text', text: JSON.stringify({ error: 'Trade monthly growth query failed', details: err.message }) }],
       isError: true,
     };
   }

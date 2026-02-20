@@ -80,11 +80,12 @@ export const buildFilterFromParams = (params) => {
   return Object.keys(filter).length > 0 ? filter : undefined;
 };
 
-export const execute = async (params) => {
+
+export async function handler(params) {
   const filter = buildFilterFromParams(params);
   const normalizedParams = {
     filter,
-    orderBy: params.order ? { PERIOD_MONTH: params.order } : undefined,
+    orderBy: params.orderBy ? { [params.orderBy]: params.order || 'ASC' } : undefined,
     first: Math.min(params.first ?? 50, config.maxPageSize),
   };
 
@@ -108,13 +109,12 @@ export const execute = async (params) => {
     return {
       content: [{
         type: 'text',
-        text: JSON.stringify({ error: 'Trade monthly totals query failed', details: err.message }),
+        text: JSON.stringify({
+          error: 'Trade monthly totals query failed',
+          details: err.message,
+        }),
       }],
       isError: true,
     };
   }
-};
-
-export async function handler(params) {
-  return execute(params);
 }

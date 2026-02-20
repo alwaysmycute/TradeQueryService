@@ -14,7 +14,6 @@ import { readFile, writeFile, mkdir, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { logger } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -50,12 +49,12 @@ export async function getCachedSchema(options = {}) {
     if (Date.now() - memoryCacheTimestamp < ttlMs) {
       return memoryCache;
     }
-
+    
     // 記憶體快取過期了！
     // 關鍵改進：同步刪除檔案快取，確保雙層快取一致性
-    logger.info('Memory cache expired, cleaning file cache...');
+    console.log('🧹 Memory cache expired, cleaning file cache...');
     await deleteCacheFile(cacheFile);
-
+    
     // 清除記憶體快取
     memoryCache = null;
     memoryCacheTimestamp = null;
@@ -74,12 +73,12 @@ export async function getCachedSchema(options = {}) {
         return cached.schema;
       } else {
         // 檔案快取過期，刪除檔案
-        logger.info('File cache expired, deleting file...');
+        console.log('🧹 File cache expired, deleting file...');
         await deleteCacheFile(cacheFile);
       }
     }
   } catch (err) {
-    logger.warn({ error: err.message }, 'Failed to read or parse cache file');
+    console.warn('Failed to read or parse cache file:', err.message);
     // 檔案讀取失敗，刪除檔案
     try {
       await deleteCacheFile(cacheFile);
@@ -120,9 +119,9 @@ export async function setCachedSchema(schema, options = {}) {
       JSON.stringify({ _cachedAt: now, schema }, null, 2),
       'utf-8'
     );
-    logger.info('Schema cached (memory + file)');
+    console.log('✅ Schema cached (memory + file)');
   } catch (err) {
-    logger.warn({ error: err.message }, 'Warning: Failed to write schema cache file');
+    console.warn('Warning: Failed to write schema cache file:', err.message);
   }
 }
 
@@ -136,10 +135,10 @@ async function deleteCacheFile(cacheFile) {
   try {
     if (existsSync(cacheFile)) {
       await rm(cacheFile);
-      logger.debug({ cacheFile }, 'Deleted cache file');
+      console.log('🗑️  Deleted cache file:', cacheFile);
     }
   } catch (err) {
-    logger.warn({ error: err.message, cacheFile }, 'Warning: Failed to delete cache file');
+    console.warn('Warning: Failed to delete cache file:', err.message);
   }
 }
 
@@ -154,15 +153,15 @@ async function deleteCacheFile(cacheFile) {
  */
 export async function clearCache(options = {}) {
   const cacheFile = options.cacheFile || DEFAULT_CACHE_FILE;
-
+  
   // 清除記憶體快取
   memoryCache = null;
   memoryCacheTimestamp = null;
 
   // 清除檔案快取
   await deleteCacheFile(cacheFile);
-
-  logger.info('All cache cleared (memory + file)');
+  
+  console.log('🧹 All cache cleared (memory + file)');
 }
 
 /**
@@ -177,18 +176,18 @@ export async function clearCache(options = {}) {
  */
 export async function refreshCache(options = {}) {
   const cacheFile = options.cacheFile || DEFAULT_CACHE_FILE;
-
+  
   // 清除記憶體快取
   memoryCache = null;
   memoryCacheTimestamp = null;
 
   // 清除檔案快取
   await deleteCacheFile(cacheFile);
-
-  logger.info('Cache refreshed (cleared, ready to fetch from API)');
-
+  
+  console.log('🔄 Cache refreshed (cleared, ready to fetch from API)');
+  
   if (options.fetchFromAPI !== false) {
-    logger.info('Hint: You should now call introspect-schema to fetch from API');
+    console.log('💡 Hint: You should now call introspect-schema to fetch from API');
   }
 }
 
@@ -202,7 +201,7 @@ export async function refreshCache(options = {}) {
 export function getCacheStatus(options = {}) {
   const cacheFile = options.cacheFile || DEFAULT_CACHE_FILE;
   const fileExists = existsSync(cacheFile);
-
+  
   return {
     hasMemoryCache: !!memoryCache,
     memoryCacheAge: memoryCacheTimestamp ? Date.now() - memoryCacheTimestamp : null,

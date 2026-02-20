@@ -24,6 +24,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAllTools } from './tools/index.js';
+import { logger } from './utils/logger.js';
 
 /**
  * 建立並設定 MCP Server 實例
@@ -42,7 +43,7 @@ export function createMcpServer() {
     capabilities: {},
   });
 
-  console.log('🧭 MCP Server name:', server.name); // ← 就是這一行
+  logger.info({ serverName: server.name }, 'MCP Server created');
 
   // 註冊所有工具
   registerAllTools(server);
